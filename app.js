@@ -8,9 +8,9 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // State Variables
 const processedIds = new Set();
 let lastId = 0;
-const MAX_DATA_POINTS = 30;
+const MAX_DATA_POINTS = 20; // 20 logs for default chart display
 
-// Data structures for charts
+// Data structures for default charts (max 20 points)
 const chartLabels = [];
 const tempValues = [];
 const humidValues = [];
@@ -36,6 +36,21 @@ const evtCard = document.getElementById('event-log-card');
 const rtHint = document.getElementById('rt-hint');
 const evtHint = document.getElementById('evt-hint');
 
+// Chart Card Elements & Hints
+const tempCard = document.getElementById('temp-card');
+const humidCard = document.getElementById('humid-card');
+const coCard = document.getElementById('co-card');
+const tempHint = document.getElementById('temp-hint');
+const humidHint = document.getElementById('humid-hint');
+const coHint = document.getElementById('co-hint');
+
+// Tracking chart expand/collapse state (default 20 points, expandable to 17280 points)
+const chartStates = {
+    temp: { expanded: false, loading: false },
+    humid: { expanded: false, loading: false },
+    co: { expanded: false, loading: false }
+};
+
 // Helper to determine status description
 function getStatusInfo(statusCode) {
     if (statusCode === 2) return { text: "위험", className: "status-danger" };
@@ -44,24 +59,36 @@ function getStatusInfo(statusCode) {
 }
 
 // Z-score Anomaly Identifier
-// Finds which sensor is anomalous based on deviation from historical distribution:
+// Computes deviation using training data statistics (mean & std):
 // Temperature_C: mean = 24.47, std = 1.95
 // Humidity_Percent: mean = 60.97, std = 2.30
 // CO_ppm: mean = 32.24, std = 9.33
-function getAnomalousSensor(index, st) {
+function getAnomalousSensor(index, st, chart) {
     if (st === 1) {
-        // Warning: caused strictly by Temperature >= 40.0
+        // Warning is strictly temperature anomaly (Temp >= 40.0)
         return 'temp';
     }
     if (st === 2) {
-        const temp = tempValues[index];
-        const humid = humidValues[index];
-        const co = coValues[index];
+        let temp, humid, co;
+        
+        if (chart && chart.statusCodes) {
+            // Expanded mode (17280 points): extract values from the chart's local lists
+            temp = chart.tempList[index];
+            humid = chart.humidList[index];
+            co = chart.coList[index];
+        } else {
+            // Default/Collapsed mode (20 points): extract from global live lists
+            temp = tempValues[index];
+            humid = humidValues[index];
+            co = coValues[index];
+        }
+
+        if (temp === undefined || humid === undefined || co === undefined) return null;
 
         // Primary rule override: Temp >= 40.0 is Temperature anomaly
         if (temp >= 40.0) return 'temp';
 
-        // Secondary Z-score contribution check
+        // Calculate Z-scores
         const zTemp = Math.abs(temp - 24.4696) / 1.9465;
         const zHumid = Math.abs(humid - 60.9735) / 2.3036;
         const zCo = Math.abs(co - 32.2420) / 9.3260;
@@ -85,10 +112,13 @@ function createVerticalBandPlugin(chartId, checkAnomalyFn) {
             const meta = chart.getDatasetMeta(0);
             if (!meta.data || meta.data.length === 0) return;
 
+            // Use expanded list statusCodes if chart is expanded, otherwise use global statusCodes
+            const activeStatusCodes = chart.statusCodes || statusCodes;
+
             ctx.save();
-            for (let i = 0; i < statusCodes.length; i++) {
-                const st = statusCodes[i];
-                if (st > 0 && checkAnomalyFn(i, st)) {
+            for (let i = 0; i < activeStatusCodes.length; i++) {
+                const st = activeStatusCodes[i];
+                if (st > 0 && checkAnomalyFn(i, st, chart)) {
                     if (meta.data[i]) {
                         const currentX = meta.data[i].x;
 
@@ -163,7 +193,7 @@ function initCharts() {
             }]
         },
         options: commonOptions,
-        plugins: [createVerticalBandPlugin('temp', (idx, st) => getAnomalousSensor(idx, st) === 'temp')]
+        plugins: [createVerticalBandPlugin('temp', (idx, st, chart) => getAnomalousSensor(idx, st, chart) === 'temp')]
     });
 
     // 2. Humid Chart (Blue)
@@ -178,7 +208,7 @@ function initCharts() {
             }]
         },
         options: commonOptions,
-        plugins: [createVerticalBandPlugin('humid', (idx, st) => getAnomalousSensor(idx, st) === 'humid')]
+        plugins: [createVerticalBandPlugin('humid', (idx, st, chart) => getAnomalousSensor(idx, st, chart) === 'humid')]
     });
 
     // 3. CO Chart (Black)
@@ -193,7 +223,7 @@ function initCharts() {
             }]
         },
         options: commonOptions,
-        plugins: [createVerticalBandPlugin('co', (idx, st) => getAnomalousSensor(idx, st) === 'co')]
+        plugins: [createVerticalBandPlugin('co', (idx, st, chart) => getAnomalousSensor(idx, st, chart) === 'co')]
     });
 }
 
@@ -203,6 +233,7 @@ function appendLogItem(logWindowEl, row, limit = 100) {
     if (placeholder) placeholder.remove();
 
     const info = getStatusInfo(row.status_code);
+    // Parse Supabase UTC created_at and convert to client local time
     const date = new Date(row.created_at);
     const timeStr = date.toLocaleTimeString('ko-KR', { hour12: false });
 
@@ -219,7 +250,7 @@ function appendLogItem(logWindowEl, row, limit = 100) {
     // Auto-scroll to bottom
     logWindowEl.scrollTop = logWindowEl.scrollHeight;
 
-    // Maintain maximum limit of 100 items
+    // Limit maximum log elements in container
     while (logWindowEl.children.length > limit) {
         logWindowEl.removeChild(logWindowEl.firstChild);
     }
@@ -257,14 +288,14 @@ function processRow(row) {
         hour12: false
     });
 
-    // Add to chart datasets
+    // If the chart is NOT expanded, we update it dynamically
     chartLabels.push(timeStr);
     tempValues.push(row.temperature_c);
     humidValues.push(row.humidity_percent);
     coValues.push(row.co_ppm);
     statusCodes.push(row.status_code);
 
-    // Keep arrays under MAX_DATA_POINTS limits
+    // Keep default datasets restricted to MAX_DATA_POINTS (20)
     if (chartLabels.length > MAX_DATA_POINTS) {
         chartLabels.shift();
         tempValues.shift();
@@ -273,10 +304,10 @@ function processRow(row) {
         statusCodes.shift();
     }
 
-    // Update Charts
-    if (tempChart) tempChart.update();
-    if (humidChart) humidChart.update();
-    if (coChart) coChart.update();
+    // Update Charts (if they are NOT currently expanded)
+    if (tempChart && !chartStates.temp.expanded) tempChart.update();
+    if (humidChart && !chartStates.humid.expanded) humidChart.update();
+    if (coChart && !chartStates.co.expanded) coChart.update();
 
     // Danger Event trigger background change
     if (row.status_code === 2) {
@@ -287,6 +318,122 @@ function processRow(row) {
 
     // Update Time Badge
     timeBadgeEl.textContent = `최근 업데이트: ${timeStr}`;
+}
+
+// Toggles chart scale between default (20 logs) and expanded (17,280 logs)
+async function toggleChartScale(type) {
+    const state = chartStates[type];
+    const card = document.getElementById(`${type}-card`);
+    const hint = document.getElementById(`${type}-hint`);
+    const valueEl = document.getElementById(`current-${type}`);
+    const originalText = valueEl.textContent;
+    
+    if (state.loading) return; // Ignore click if loading
+
+    const chartInstance = (type === 'temp') ? tempChart : (type === 'humid') ? humidChart : coChart;
+
+    if (!state.expanded) {
+        // --- 17,280 Logs Expanded State ---
+        state.loading = true;
+        valueEl.textContent = "불러오는 중...";
+        hint.textContent = "로딩 중...";
+
+        try {
+            console.log(`Fetching 17,280 logs for ${type}...`);
+            const { data, error } = await supabaseClient
+                .from('sensor_logs2')
+                .select('*')
+                .order('id', { ascending: false })
+                .limit(17280);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                // Reverse list to display oldest -> newest
+                const chronologicalData = data.reverse();
+                
+                const labels = [];
+                const temps = [];
+                const humids = [];
+                const cos = [];
+                const localStatusCodes = [];
+
+                chronologicalData.forEach(row => {
+                    const date = new Date(row.created_at);
+                    const timeStr = date.toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    labels.push(timeStr);
+                    temps.push(row.temperature_c);
+                    humids.push(row.humidity_percent);
+                    cos.push(row.co_ppm);
+                    localStatusCodes.push(row.status_code);
+                });
+
+                // Attach full lists to chart object so Z-score calculator has values
+                chartInstance.tempList = temps;
+                chartInstance.humidList = humids;
+                chartInstance.coList = cos;
+                chartInstance.statusCodes = localStatusCodes;
+
+                // Bind correct parameter array to chart dataset
+                chartInstance.data.labels = labels;
+                if (type === 'temp') {
+                    chartInstance.data.datasets[0].data = temps;
+                } else if (type === 'humid') {
+                    chartInstance.data.datasets[0].data = humids;
+                } else {
+                    chartInstance.data.datasets[0].data = cos;
+                }
+
+                // CRITICAL OPTIMIZATION: Disable points rendering for 17,280 entries to prevent browser freeze!
+                chartInstance.options.elements.point.radius = 0;
+                chartInstance.options.elements.point.hoverRadius = 0;
+
+                chartInstance.update();
+
+                state.expanded = true;
+                card.classList.add('chart-expanded');
+                hint.textContent = "클릭 시 축소";
+            }
+        } catch (err) {
+            console.error(`Failed to fetch 17280 logs for ${type}:`, err);
+            hint.textContent = "오류 발생";
+        } finally {
+            state.loading = false;
+            // Restore latest current numerical label
+            const latestVal = (type === 'temp') ? tempValues[tempValues.length - 1] :
+                             (type === 'humid') ? humidValues[humidValues.length - 1] :
+                             coValues[coValues.length - 1];
+            const unit = (type === 'temp') ? '°C' : (type === 'humid') ? '%' : 'ppm';
+            valueEl.textContent = latestVal !== undefined ? `${latestVal.toFixed(1)} ${unit}` : originalText;
+        }
+    } else {
+        // --- 20 Logs Collapsed State ---
+        const globalValues = (type === 'temp') ? tempValues : (type === 'humid') ? humidValues : coValues;
+
+        // Restore global datasets
+        chartInstance.data.labels = chartLabels;
+        chartInstance.data.datasets[0].data = globalValues;
+
+        // Re-enable points rendering for 20 entries
+        chartInstance.options.elements.point.radius = 2;
+        chartInstance.options.elements.point.hoverRadius = 4;
+
+        // Clear local variables
+        chartInstance.tempList = null;
+        chartInstance.humidList = null;
+        chartInstance.coList = null;
+        chartInstance.statusCodes = null;
+
+        chartInstance.update();
+
+        state.expanded = false;
+        card.classList.remove('chart-expanded');
+        hint.textContent = "클릭 시 24h 확대";
+    }
 }
 
 // Fetch historical data on startup
@@ -362,8 +509,9 @@ function startPolling() {
     }, 2000);
 }
 
-// Log Cards Toggling Setup
-function setupLogInteractions() {
+// Interactions for Logs & Charts
+function setupInteractions() {
+    // 1. Collapsible Logs Cards
     rtCard.addEventListener('click', () => {
         rtCard.classList.toggle('expanded');
         rtLogWindowEl.classList.toggle('expanded');
@@ -383,12 +531,17 @@ function setupLogInteractions() {
             evtHint.textContent = '클릭 시 100줄 확대';
         }
     });
+
+    // 2. Expandable Chart Cards
+    tempCard.addEventListener('click', () => toggleChartScale('temp'));
+    humidCard.addEventListener('click', () => toggleChartScale('humid'));
+    coCard.addEventListener('click', () => toggleChartScale('co'));
 }
 
 // App Initialization
 async function initApp() {
     initCharts();
-    setupLogInteractions();
+    setupInteractions();
     await fetchHistory();
     setupRealtime();
     startPolling();

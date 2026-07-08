@@ -72,9 +72,12 @@
         <!-- Charts Area -->
         <section class="chart-section">
             <!-- Temperature Chart -->
-            <div class="chart-card">
+            <div class="chart-card" id="temp-card">
                 <div class="chart-header">
-                    <span class="label">온도 (Temperature_C)</span>
+                    <div class="title-group">
+                        <span class="label">온도 (Temperature_C)</span>
+                        <span class="chart-hint" id="temp-hint">클릭 시 24h 확대</span>
+                    </div>
                     <span class="current-value val-temp" id="current-temp">-.- °C</span>
                 </div>
                 <div class="chart-container">
@@ -83,9 +86,12 @@
             </div>
 
             <!-- Humidity Chart -->
-            <div class="chart-card">
+            <div class="chart-card" id="humid-card">
                 <div class="chart-header">
-                    <span class="label">습도 (Humidity_Percent)</span>
+                    <div class="title-group">
+                        <span class="label">습도 (Humidity_Percent)</span>
+                        <span class="chart-hint" id="humid-hint">클릭 시 24h 확대</span>
+                    </div>
                     <span class="current-value val-humid" id="current-humid">-.- %</span>
                 </div>
                 <div class="chart-container">
@@ -94,9 +100,12 @@
             </div>
 
             <!-- CO Chart -->
-            <div class="chart-card">
+            <div class="chart-card" id="co-card">
                 <div class="chart-header">
-                    <span class="label">CO 농도 (CO_ppm)</span>
+                    <div class="title-group">
+                        <span class="label">CO 농도 (CO_ppm)</span>
+                        <span class="chart-hint" id="co-hint">클릭 시 24h 확대</span>
+                    </div>
                     <span class="current-value val-co" id="current-co">-.- ppm</span>
                 </div>
                 <div class="chart-container">

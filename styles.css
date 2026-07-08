@@ -237,7 +237,32 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    transition: background-color 0.4s ease, border-color 0.4s ease;
+    cursor: pointer;
+    transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.2s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-1px);
+}
+
+.chart-hint {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    background-color: rgba(0, 0, 0, 0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    margin-left: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.chart-card.chart-expanded .chart-hint {
+    background-color: #1f2937;
+    color: #ffffff;
+}
+
+.chart-card.chart-expanded .chart-container {
+    height: 300px;
 }
 
 .chart-header {
@@ -326,6 +351,16 @@ body.theme-danger .chart-card {
     background-color: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
+}
+
+body.theme-danger .chart-hint {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+body.theme-danger .chart-card.chart-expanded .chart-hint {
+    background-color: #ffffff;
+    color: #ef4444;
 }
 
 /* Keep current value colors readable when in danger mode */
