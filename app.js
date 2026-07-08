@@ -235,7 +235,13 @@ function appendLogItem(logWindowEl, row, limit = 100) {
     const info = getStatusInfo(row.status_code);
     // Parse Supabase UTC created_at and convert to client local time
     const date = new Date(row.created_at);
-    const timeStr = date.toLocaleTimeString('ko-KR', { hour12: false });
+    const timeStr = date.toLocaleTimeString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 
     const logItem = document.createElement('div');
     logItem.className = `log-item ${info.className}`;
@@ -282,6 +288,7 @@ function processRow(row) {
 
     // Format time for charts
     const timeStr = new Date(row.created_at).toLocaleTimeString('ko-KR', {
+        timeZone: 'Asia/Seoul',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -361,6 +368,7 @@ async function toggleChartScale(type) {
                 chronologicalData.forEach(row => {
                     const date = new Date(row.created_at);
                     const timeStr = date.toLocaleTimeString('ko-KR', {
+                        timeZone: 'Asia/Seoul',
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: false
