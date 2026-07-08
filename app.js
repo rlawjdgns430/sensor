@@ -20,6 +20,12 @@ const statusCodes = [];
 // Chart Instances
 let tempChart, humidChart, coChart;
 
+// Parse date from Supabase (subtract 9 hours to align with KST current time)
+function parseSupabaseDate(created_at) {
+    const originalDate = new Date(created_at);
+    return new Date(originalDate.getTime() - 9 * 60 * 60 * 1000);
+}
+
 // DOM Elements
 const dbStatusEl = document.getElementById('db-status');
 const timeBadgeEl = document.getElementById('time-badge');
@@ -233,8 +239,8 @@ function appendLogItem(logWindowEl, row, limit = 100) {
     if (placeholder) placeholder.remove();
 
     const info = getStatusInfo(row.status_code);
-    // Parse Supabase UTC created_at and convert to client local time
-    const date = new Date(row.created_at);
+    // Parse Supabase UTC created_at and convert to client local time (offsetting by -9 hours)
+    const date = parseSupabaseDate(row.created_at);
     const timeStr = date.toLocaleTimeString('ko-KR', {
         timeZone: 'Asia/Seoul',
         hour12: false,
@@ -287,7 +293,7 @@ function processRow(row) {
     evtCountEl.textContent = evtLogWindowEl.querySelectorAll('.log-item').length;
 
     // Format time for charts
-    const timeStr = new Date(row.created_at).toLocaleTimeString('ko-KR', {
+    const timeStr = parseSupabaseDate(row.created_at).toLocaleTimeString('ko-KR', {
         timeZone: 'Asia/Seoul',
         hour: '2-digit',
         minute: '2-digit',
@@ -366,7 +372,7 @@ async function toggleChartScale(type) {
                 const localStatusCodes = [];
 
                 chronologicalData.forEach(row => {
-                    const date = new Date(row.created_at);
+                    const date = parseSupabaseDate(row.created_at);
                     const timeStr = date.toLocaleTimeString('ko-KR', {
                         timeZone: 'Asia/Seoul',
                         hour: '2-digit',
