@@ -15,7 +15,7 @@ const chartLabels = [];
 const tempValues = [];
 const humidValues = [];
 const coValues = [];
-const statusCodes = []; // To store status for segment color calculation
+const statusCodes = [];
 
 // Chart Instances
 let tempChart, humidChart, coChart;
@@ -23,11 +23,18 @@ let tempChart, humidChart, coChart;
 // DOM Elements
 const dbStatusEl = document.getElementById('db-status');
 const timeBadgeEl = document.getElementById('time-badge');
-const logWindowEl = document.getElementById('log-window');
+const rtLogWindowEl = document.getElementById('rt-log-window');
+const evtLogWindowEl = document.getElementById('evt-log-window');
+const rtCountEl = document.getElementById('rt-count');
+const evtCountEl = document.getElementById('evt-count');
 const currentTempEl = document.getElementById('current-temp');
 const currentHumidEl = document.getElementById('current-humid');
 const currentCoEl = document.getElementById('current-co');
-const logCountEl = document.getElementById('log-count');
+
+const rtCard = document.getElementById('realtime-log-card');
+const evtCard = document.getElementById('event-log-card');
+const rtHint = document.getElementById('rt-hint');
+const evtHint = document.getElementById('evt-hint');
 
 // Helper to determine status description
 function getStatusInfo(statusCode) {
@@ -36,19 +43,79 @@ function getStatusInfo(statusCode) {
     return { text: "정상", className: "status-normal" };
 }
 
-// Chart Segment Coloring Rule
-function getSegmentColorRule(defaultColor) {
+// Z-score Anomaly Identifier
+// Finds which sensor is anomalous based on deviation from historical distribution:
+// Temperature_C: mean = 24.47, std = 1.95
+// Humidity_Percent: mean = 60.97, std = 2.30
+// CO_ppm: mean = 32.24, std = 9.33
+function getAnomalousSensor(index, st) {
+    if (st === 1) {
+        // Warning: caused strictly by Temperature >= 40.0
+        return 'temp';
+    }
+    if (st === 2) {
+        const temp = tempValues[index];
+        const humid = humidValues[index];
+        const co = coValues[index];
+
+        // Primary rule override: Temp >= 40.0 is Temperature anomaly
+        if (temp >= 40.0) return 'temp';
+
+        // Secondary Z-score contribution check
+        const zTemp = Math.abs(temp - 24.4696) / 1.9465;
+        const zHumid = Math.abs(humid - 60.9735) / 2.3036;
+        const zCo = Math.abs(co - 32.2420) / 9.3260;
+
+        const maxZ = Math.max(zTemp, zHumid, zCo);
+        if (maxZ === zTemp) return 'temp';
+        if (maxZ === zHumid) return 'humid';
+        return 'co';
+    }
+    return null;
+}
+
+// Chart.js background shading plugin
+function createVerticalBandPlugin(chartId, checkAnomalyFn) {
     return {
-        borderColor: ctx => {
-            if (ctx.p0DataIndex === undefined || ctx.p1DataIndex === undefined) return defaultColor;
-            // Get the statuses at the start and end of this line segment
-            const s0 = statusCodes[ctx.p0DataIndex];
-            const s1 = statusCodes[ctx.p1DataIndex];
-            const maxStatus = Math.max(s0 || 0, s1 || 0);
-            
-            if (maxStatus === 2) return '#ef4444'; // Red for Danger segment
-            if (maxStatus === 1) return '#f97316'; // Orange for Warning segment
-            return defaultColor;
+        id: `verticalBand_${chartId}`,
+        beforeDraw: (chart) => {
+            const { ctx, chartArea, scales } = chart;
+            if (!chartArea || !scales.x) return;
+
+            const meta = chart.getDatasetMeta(0);
+            if (!meta.data || meta.data.length === 0) return;
+
+            ctx.save();
+            for (let i = 0; i < statusCodes.length; i++) {
+                const st = statusCodes[i];
+                if (st > 0 && checkAnomalyFn(i, st)) {
+                    if (meta.data[i]) {
+                        const currentX = meta.data[i].x;
+
+                        // Calculate width of band
+                        let width = 10;
+                        if (meta.data.length > 1) {
+                            if (i === 0) {
+                                width = meta.data[1].x - currentX;
+                            } else if (i === meta.data.length - 1) {
+                                width = currentX - meta.data[i-1].x;
+                            } else {
+                                width = (meta.data[i+1].x - meta.data[i-1].x) / 2;
+                            }
+                        }
+
+                        // Background shading color
+                        ctx.fillStyle = st === 2 ? 'rgba(239, 68, 68, 0.22)' : 'rgba(249, 115, 22, 0.22)';
+                        ctx.fillRect(
+                            currentX - width / 2,
+                            chartArea.top,
+                            width,
+                            chartArea.bottom - chartArea.top
+                        );
+                    }
+                }
+            }
+            ctx.restore();
         }
     };
 }
@@ -75,20 +142,8 @@ function initCharts() {
             point: {
                 radius: 2,
                 hoverRadius: 4,
-                backgroundColor: ctx => {
-                    const idx = ctx.dataIndex;
-                    const st = statusCodes[idx];
-                    if (st === 2) return '#ef4444';
-                    if (st === 1) return '#f97316';
-                    return '#ffffff';
-                },
-                borderColor: ctx => {
-                    const idx = ctx.dataIndex;
-                    const st = statusCodes[idx];
-                    if (st === 2) return '#ef4444';
-                    if (st === 1) return '#f97316';
-                    return ctx.dataset.borderColor;
-                }
+                backgroundColor: '#ffffff',
+                borderColor: ctx => ctx.dataset.borderColor
             },
             line: {
                 borderWidth: 2
@@ -104,11 +159,11 @@ function initCharts() {
             datasets: [{
                 data: tempValues,
                 borderColor: '#ec4899',
-                segment: getSegmentColorRule('#ec4899'),
                 tension: 0.25
             }]
         },
-        options: commonOptions
+        options: commonOptions,
+        plugins: [createVerticalBandPlugin('temp', (idx, st) => getAnomalousSensor(idx, st) === 'temp')]
     });
 
     // 2. Humid Chart (Blue)
@@ -119,11 +174,11 @@ function initCharts() {
             datasets: [{
                 data: humidValues,
                 borderColor: '#3b82f6',
-                segment: getSegmentColorRule('#3b82f6'),
                 tension: 0.25
             }]
         },
-        options: commonOptions
+        options: commonOptions,
+        plugins: [createVerticalBandPlugin('humid', (idx, st) => getAnomalousSensor(idx, st) === 'humid')]
     });
 
     // 3. CO Chart (Black)
@@ -134,17 +189,16 @@ function initCharts() {
             datasets: [{
                 data: coValues,
                 borderColor: '#111827',
-                segment: getSegmentColorRule('#111827'),
                 tension: 0.25
             }]
         },
-        options: commonOptions
+        options: commonOptions,
+        plugins: [createVerticalBandPlugin('co', (idx, st) => getAnomalousSensor(idx, st) === 'co')]
     });
 }
 
 // Append new log item
-function appendLog(row) {
-    // Remove empty placeholder
+function appendLogItem(logWindowEl, row, limit = 100) {
     const placeholder = logWindowEl.querySelector('.no-log');
     if (placeholder) placeholder.remove();
 
@@ -156,15 +210,19 @@ function appendLog(row) {
     logItem.className = `log-item ${info.className}`;
     logItem.innerHTML = `
         <span class="log-time">${timeStr}</span>
-        <span>온도: ${row.temperature_c}°C | 습도: ${row.humidity_percent}% | CO: ${row.co_ppm} ppm</span>
+        <span>온도: ${row.temperature_c.toFixed(1)}°C | 습도: ${row.humidity_percent.toFixed(1)}% | CO: ${row.co_ppm.toFixed(1)} ppm</span>
         <span style="font-weight: 700;">[${info.text}]</span>
     `;
 
     logWindowEl.appendChild(logItem);
+    
+    // Auto-scroll to bottom
     logWindowEl.scrollTop = logWindowEl.scrollHeight;
 
-    // Update log counter badge
-    logCountEl.textContent = processedIds.size;
+    // Maintain maximum limit of 100 items
+    while (logWindowEl.children.length > limit) {
+        logWindowEl.removeChild(logWindowEl.firstChild);
+    }
 }
 
 // Process new row data
@@ -181,8 +239,15 @@ function processRow(row) {
     currentHumidEl.textContent = `${row.humidity_percent.toFixed(1)} %`;
     currentCoEl.textContent = `${row.co_ppm.toFixed(1)} ppm`;
 
-    // Append to Log Window
-    appendLog(row);
+    // 1. Append to Realtime log
+    appendLogItem(rtLogWindowEl, row, 100);
+    rtCountEl.textContent = rtLogWindowEl.querySelectorAll('.log-item').length;
+
+    // 2. Append to Event log if warning/danger
+    if (row.status_code === 1 || row.status_code === 2) {
+        appendLogItem(evtLogWindowEl, row, 100);
+    }
+    evtCountEl.textContent = evtLogWindowEl.querySelectorAll('.log-item').length;
 
     // Format time for charts
     const timeStr = new Date(row.created_at).toLocaleTimeString('ko-KR', {
@@ -231,7 +296,7 @@ async function fetchHistory() {
             .from('sensor_logs2')
             .select('*')
             .order('id', { ascending: false })
-            .limit(MAX_DATA_POINTS);
+            .limit(100); // Fetch up to 100 to prefill log lists
 
         if (error) throw error;
 
@@ -297,16 +362,40 @@ function startPolling() {
     }, 2000);
 }
 
+// Log Cards Toggling Setup
+function setupLogInteractions() {
+    rtCard.addEventListener('click', () => {
+        rtCard.classList.toggle('expanded');
+        rtLogWindowEl.classList.toggle('expanded');
+        if (rtLogWindowEl.classList.contains('expanded')) {
+            rtHint.textContent = '클릭 시 5줄 축소';
+        } else {
+            rtHint.textContent = '클릭 시 100줄 확대';
+        }
+    });
+
+    evtCard.addEventListener('click', () => {
+        evtCard.classList.toggle('expanded');
+        evtLogWindowEl.classList.toggle('expanded');
+        if (evtLogWindowEl.classList.contains('expanded')) {
+            evtHint.textContent = '클릭 시 5줄 축소';
+        } else {
+            evtHint.textContent = '클릭 시 100줄 확대';
+        }
+    });
+}
+
 // App Initialization
 async function initApp() {
     initCharts();
+    setupLogInteractions();
     await fetchHistory();
     setupRealtime();
     startPolling();
 }
 
-// Service Worker Registration for PWA support
-if ('serviceWorker' in navigator) {
+// Service Worker Registration for PWA support (disabled on localhost for easier development)
+if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('Service Worker registered successfully!', reg.scope))

@@ -77,46 +77,86 @@ body {
     transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* Log Section */
-.log-section {
+/* Logs Wrapper */
+.logs-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Log Card */
+.log-card {
     display: flex;
     flex-direction: column;
     gap: 8px;
     background-color: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
-    padding: 16px;
-    transition: background-color 0.4s ease, border-color 0.4s ease;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.2s ease;
 }
 
-.section-header {
+.log-card:hover {
+    transform: translateY(-1px);
+}
+
+.log-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+    padding-bottom: 6px;
 }
 
-.section-header h2 {
-    font-size: 1rem;
+.title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-group h2 {
+    font-size: 0.95rem;
     font-weight: 700;
     color: inherit;
 }
 
+.expand-hint {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    background-color: rgba(0, 0, 0, 0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.log-card.expanded .expand-hint {
+    background-color: #1f2937;
+    color: #ffffff;
+}
+
 .count-badge {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     background-color: #1f2937;
     color: #ffffff;
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
 }
 
 .log-window {
-    height: 180px;
+    max-height: 120px; /* Collapsed: fits ~5 lines */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
     padding-right: 4px;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.log-window.expanded {
+    max-height: 400px; /* Expanded: shows up to 100 lines */
 }
 
 /* Custom Scrollbar for Logs */
@@ -249,10 +289,20 @@ body.theme-danger .last-updated {
     color: #ffffff;
 }
 
-body.theme-danger .log-section {
+body.theme-danger .log-card {
     background-color: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
+}
+
+body.theme-danger .expand-hint {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+body.theme-danger .log-card.expanded .expand-hint {
+    background-color: #ffffff;
+    color: #ef4444;
 }
 
 body.theme-danger .log-item {

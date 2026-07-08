@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <!-- 캐시 방지 및 구버전 서비스 워커 비활성화 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                for (let r of regs) r.unregister();
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(keys => {
+                for (let k of keys) caches.delete(k);
+            });
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>실시간 센서 모니터링 대시보드</title>
@@ -25,14 +38,34 @@
             <div class="last-updated" id="time-badge">연결 대기 중...</div>
         </header>
 
-        <!-- Log Area -->
-        <section class="log-section">
-            <div class="section-header">
-                <h2>실시간 상태 로그</h2>
-                <span class="count-badge" id="log-count">0</span>
+        <!-- Logs Container (Split into Real-time and Event Logs) -->
+        <section class="logs-wrapper">
+            <!-- Real-time Log -->
+            <div class="log-card" id="realtime-log-card">
+                <div class="log-header">
+                    <div class="title-group">
+                        <h2>실시간 로그</h2>
+                        <span class="count-badge" id="rt-count">0</span>
+                    </div>
+                    <span class="expand-hint" id="rt-hint">클릭 시 100줄 확대</span>
+                </div>
+                <div class="log-window" id="rt-log-window">
+                    <div class="no-log">수신된 데이터가 없습니다.</div>
+                </div>
             </div>
-            <div class="log-window" id="log-window">
-                <div class="no-log">수신된 데이터가 없습니다.</div>
+
+            <!-- Event Log -->
+            <div class="log-card" id="event-log-card">
+                <div class="log-header">
+                    <div class="title-group">
+                        <h2>이벤트 로그 (경고/위험)</h2>
+                        <span class="count-badge" id="evt-count">0</span>
+                    </div>
+                    <span class="expand-hint" id="evt-hint">클릭 시 100줄 확대</span>
+                </div>
+                <div class="log-window" id="evt-log-window">
+                    <div class="no-log">이벤트 발생 대기 중...</div>
+                </div>
             </div>
         </section>
 
@@ -73,6 +106,6 @@
         </section>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>
