@@ -1,9 +1,12 @@
 import os
 import sys
 import argparse
+import time
 import pandas as pd
 import numpy as np
 import joblib
+import serial
+import serial.tools.list_ports
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -45,11 +48,72 @@ class HybridAnomalyDetector:
             # 정상
             return 0
 
+def run_serial_loop(port, baud, detector, save_fn):
+    print("\n" + "=" * 60)
+    print("실시간 아두이노 시리얼 모니터링 모드 활성화")
+    print(f"포트: {port} | 보드레이트: {baud} | 신호 주기: 3초")
+    print("프로그램 종료: Ctrl+C")
+    print("=" * 60)
+
+    while True:
+        try:
+            print(f"\n[INFO] 아두이노 포트 연결 시도 중 ({port})...")
+            # 5-second timeout for robustness
+            with serial.Serial(port, baud, timeout=5) as ser:
+                print(f"[SUCCESS] 아두이노에 연결되었습니다! 데이터를 수신합니다...")
+                ser.reset_input_buffer()
+                
+                while True:
+                    line = ser.readline()
+                    if not line:
+                        continue  # Timeout, try reading again
+                    
+                    try:
+                        decoded_line = line.decode('utf-8').strip()
+                        if not decoded_line:
+                            continue
+                        
+                        # Expected format: "temp,humid,co" (e.g. "24.5,60.2,32.0")
+                        parts = decoded_line.split(',')
+                        if len(parts) != 3:
+                            print(f"[WARNING] 데이터 규격 오류 (수신 문자열: '{decoded_line}')")
+                            continue
+                        
+                        temp = float(parts[0])
+                        humid = float(parts[1])
+                        co = float(parts[2])
+                        
+                        # Run predictions
+                        status = detector.predict_status(temp, humid, co)
+                        status_map = {0: "정상 (0)", 1: "경고 (1)", 2: "위험 (2)"}
+                        
+                        # KST Current local time for logging
+                        time_str = time.strftime('%H:%M:%S', time.localtime())
+                        print(f"[{time_str} 수신] 온도: {temp:.1f}°C | 습도: {humid:.1f}% | CO: {co:.1f} ppm | 판정: {status_map.get(status, '오류')}")
+                        
+                        # Push to Supabase
+                        save_fn(temp, humid, co, status)
+                        
+                    except ValueError:
+                        print(f"[WARNING] 수치 데이터 변환 실패: '{decoded_line}'")
+                    except Exception as e:
+                        print(f"[ERROR] 데이터 처리 중 예외 발생: {e}")
+                        
+        except serial.SerialException as se:
+            print(f"[WARNING] 시리얼 통신 에러: {se}")
+            print("[INFO] 아두이노 연결 상태를 확인 중... 3초 후 재연결을 시도합니다.")
+            time.sleep(3)
+        except KeyboardInterrupt:
+            print("\n[INFO] 사용자가 프로그램을 종료했습니다.")
+            break
+
 def main():
-    parser = argparse.ArgumentParser(description="하이브리드 이상 탐지 테스트 프로그램")
+    parser = argparse.ArgumentParser(description="하이브리드 이상 탐지 테스트 및 아두이노 연동 프로그램")
     parser.add_argument('--temp', type=float, help="온도 값 (Temperature_C)")
     parser.add_argument('--humid', type=float, help="습도 값 (Humidity_Percent)")
     parser.add_argument('--co', type=float, help="CO 농도 값 (CO_ppm)")
+    parser.add_argument('--port', type=str, help="아두이노 연결 시리얼 포트 (예: COM3)")
+    parser.add_argument('--baud', type=int, default=9600, help="보드레이트 (기본값: 9600)")
     args = parser.parse_args()
 
     # 모델 경로 탐색 (현재 폴더 또는 절대 경로)
@@ -105,7 +169,12 @@ def main():
         print(f"[ERROR] 모델 로드 실패: {e}")
         sys.exit(1)
 
-    # 1. 아규먼트 입력 처리
+    # 1. 아두이노 시리얼 모드 실행 분기
+    if args.port is not None:
+        run_serial_loop(args.port, args.baud, detector, save_to_supabase)
+        return
+
+    # 2. CLI 아규먼트 단발성 입력 처리
     if args.temp is not None and args.humid is not None and args.co is not None:
         status = detector.predict_status(args.temp, args.humid, args.co)
         status_map = {0: "정상 (0)", 1: "경고 (1)", 2: "위험 (2)"}
@@ -114,7 +183,21 @@ def main():
         save_to_supabase(args.temp, args.humid, args.co, status)
         return
 
-    # 2. 대화형(Interactive) 입력 루프 처리
+    # 3. 사용 가능한 시리얼 포트 탐색 및 알림 정보 노출
+    try:
+        ports = list(serial.tools.list_ports.comports())
+        if ports:
+            print("\n" + "-" * 50)
+            print("[INFO] 사용 가능한 시리얼 포트(아두이노)가 발견되었습니다:")
+            for p in ports:
+                print(f"  - {p.device} ({p.description})")
+            print("\n  아두이노 실시간 모드로 실행하시려면 아래와 같이 실행하세요:")
+            print(f"  python test.py --port {ports[0].device} --baud 9600")
+            print("-" * 50)
+    except Exception:
+        pass
+
+    # 4. 대화형(Interactive) 입력 루프 처리
     print("\n" + "=" * 50)
     print("실시간 하이브리드 이상 탐지 테스트 콘솔")
     print("온도, 습도, CO 농도를 차례대로 입력해 주세요. (종료하려면 'q' 입력)")
