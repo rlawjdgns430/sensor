@@ -1,0 +1,284 @@
+/* Reset & Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: #ffffff;
+    color: #1f2937;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* App Container (Mobile Optimized) */
+.app-container {
+    width: 100%;
+    max-width: 480px; /* iPhone/Android screen width max */
+    background-color: inherit;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Header */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    transition: border-color 0.4s ease;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brand h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    transition: color 0.4s ease;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.status-indicator.online {
+    background-color: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+
+.status-indicator.offline {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+.last-updated {
+    font-size: 0.75rem;
+    color: #6b7280;
+    background-color: #f3f4f6;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Log Section */
+.log-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 16px;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: inherit;
+}
+
+.count-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    background-color: #1f2937;
+    color: #ffffff;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.log-window {
+    height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+}
+
+/* Custom Scrollbar for Logs */
+.log-window::-webkit-scrollbar {
+    width: 4px;
+}
+
+.log-window::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.log-window::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 2px;
+}
+
+.no-log {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+/* Log Item styling */
+.log-item {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background-color: #ffffff;
+    border: 1px solid rgba(229, 231, 235, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.log-time {
+    color: #6b7280;
+    font-family: monospace;
+}
+
+/* Status colors in log */
+.log-item.status-normal {
+    color: #10b981; /* Green */
+    border-left: 4px solid #10b981;
+}
+
+.log-item.status-warning {
+    color: #f97316; /* Orange */
+    border-left: 4px solid #f97316;
+}
+
+.log-item.status-danger {
+    color: #ef4444; /* Red */
+    border-left: 4px solid #ef4444;
+}
+
+/* Charts Section */
+.chart-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chart-card {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-header .label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: inherit;
+}
+
+.chart-header .current-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.val-temp { color: #ec4899; } /* Pink */
+.val-humid { color: #3b82f6; } /* Blue */
+.val-co { color: #111827; } /* Black */
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 140px; /* Small layout height for charts */
+    background-color: #ffffff; /* Charts background white */
+    border-radius: 8px;
+    padding: 4px;
+}
+
+/* --- DANGER THEME (Full Page Background Red) --- */
+body.theme-danger {
+    background-color: #ef4444;
+    color: #ffffff;
+}
+
+body.theme-danger .app-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.theme-danger .brand h1 {
+    color: #ffffff;
+}
+
+body.theme-danger .last-updated {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+body.theme-danger .log-section {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+body.theme-danger .log-item {
+    background-color: #ffffff;
+    color: #1f2937;
+}
+
+body.theme-danger .log-item.status-normal {
+    color: #10b981;
+}
+
+body.theme-danger .log-item.status-warning {
+    color: #f97316;
+}
+
+body.theme-danger .log-item.status-danger {
+    color: #ef4444;
+}
+
+body.theme-danger .chart-card {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+/* Keep current value colors readable when in danger mode */
+body.theme-danger .val-temp { color: #ff85c0; }
+body.theme-danger .val-humid { color: #69c0ff; }
+body.theme-danger .val-co { color: #ffffff; }

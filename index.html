@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>실시간 센서 모니터링 대시보드</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="brand">
+                <div class="status-indicator offline" id="db-status"></div>
+                <h1>Sensor Monitor</h1>
+            </div>
+            <div class="last-updated" id="time-badge">연결 대기 중...</div>
+        </header>
+
+        <!-- Log Area -->
+        <section class="log-section">
+            <div class="section-header">
+                <h2>실시간 상태 로그</h2>
+                <span class="count-badge" id="log-count">0</span>
+            </div>
+            <div class="log-window" id="log-window">
+                <div class="no-log">수신된 데이터가 없습니다.</div>
+            </div>
+        </section>
+
+        <!-- Charts Area -->
+        <section class="chart-section">
+            <!-- Temperature Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="label">온도 (Temperature_C)</span>
+                    <span class="current-value val-temp" id="current-temp">-.- °C</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Humidity Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="label">습도 (Humidity_Percent)</span>
+                    <span class="current-value val-humid" id="current-humid">-.- %</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="humidChart"></canvas>
+                </div>
+            </div>
+
+            <!-- CO Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="label">CO 농도 (CO_ppm)</span>
+                    <span class="current-value val-co" id="current-co">-.- ppm</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="coChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

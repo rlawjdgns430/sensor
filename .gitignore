@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.joblib
+*.pkl
+
+# Environments
+.env
+
+# IDE / System
+.gemini/
+.idea/
+.vscode/
+.DS_Store
