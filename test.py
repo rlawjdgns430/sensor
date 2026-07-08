@@ -70,6 +70,7 @@ def run_serial_loop(port, baud, detector, save_fn):
                     
                     try:
                         decoded_line = line.decode('utf-8').strip()
+                        print(f"\n[RAW 수신 데이터] {decoded_line}")
                         if not decoded_line:
                             continue
                         
